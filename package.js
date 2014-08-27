@@ -1,7 +1,7 @@
 Package.describe({
-  summary: "meteor.d.ts plus other common Typescript+Meteor definitions",
+  summary: "This is the typescript-libs package ported for 0.9.0 and later.  It contains TypeScript definitions for Meteor core, common Meteor packages, and common third-party JS libraries.",
   version: "0.9.0",
-  git: ""
+  git: "https://github.com/fullflavedave/meteor-typescript-definitions.git"
 });
 
 Package.onUse(function(api) {
