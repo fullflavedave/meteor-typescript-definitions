@@ -132,7 +132,10 @@ var argNameMappings = {
     '\\]': '?',
     'arg1, arg2, ...': '...args',
     'param1, param2, ...': '...params',
-    'Template.<em>myTemplate</em>': 'template'
+    'Template.<em>myTemplate</em>': 'template',
+    '\\(f\\)': '(f: Function)',
+    'packagename@version': 'packageNameAndVersion',
+    '(\\w+)\\s\\|\\s[^\\)]+': '$1Or$1s: any'
 };
 
 var replaceIrregularArgNames = function(argSection) {
@@ -150,7 +153,7 @@ var argTypeMappings = {
     ': EJSON-compatible value': ': Meteor.EJSON',
     ': EJSON-compatible object': ': Meteor.EJSONObject',
     ': Template': ': Meteor.CreatedTemplate',
-    ': Rendered template object': ': RenderedTemplate',
+    ': Rendered template object': ': Meteor.RenderedTemplate',
     ': object': ': Object',
     ': JSON-compatible value': ': JSON',
     ': Mongo modifier': ': any',
@@ -350,7 +353,7 @@ var createReturnType = function(canonicalName) {
     }
 };
 
-var modules = ['Meteor', 'Deps', 'HTTP', 'Email', 'DDP', 'Assets', 'Random']; // Make these wrappers modules and not interfaces
+var modules = ['Meteor', 'Deps', 'HTTP', 'Email', 'DDP', 'Assets', 'Random', 'UI']; // Make these wrappers modules and not interfaces
 
 var interfacesTakingGenerics = ['Collection', 'Cursor'];  // Need to add a generic type to interface definition
 
@@ -487,13 +490,16 @@ var isDepsModule = function(moduleOrInterface) {
 };
 
 var addArgTypes = function(arg, argSection) {
-    var argType =hasString(arg.type, ' or ') ? 'any' : arg.type;
+    var argType = hasString(arg.type, ' or ') ? 'any' : arg.type;
     if (hasString(argSection, arg.name + '?')) {
         argSection = argSection.replace(arg.name + '?', arg.name + ': ' + argType);
+    } else if (hasString(argSection, '[' + arg.name + ']')) {
+        argSection = argSection.replace('[' + arg.name + ']', arg.name + '?: ' + argType);
     } else {
         argSection = argSection.replace(arg.name + ')', arg.name + ': ' + argType + ')');
         argSection = argSection.replace(arg.name + ',', arg.name + ': ' + argType + ',');
     }
+
     return argSection;
 };
 
@@ -501,26 +507,31 @@ var replaceOptions = function(argSection, apiDef) {
     if (!hasString(argSection, 'options')) return argSection;
 
     var optionType = '{\n';
-    _.each(apiDef.options, function(options) {
+    _.each(apiDef.options, function (options) {
         optionType += '\t\t\t\t\t' + options.name + '?: ' + options.type + ';\n'
     });
     optionType += '\t\t\t\t}';
 
     if (hasString(argSection, 'options?')) {
         argSection = argSection.replace('options?', 'options?: ' + optionType);
+    } else if (hasString(argSection, '{options}')) {
+        argSection = argSection.replace('{options}', 'options?: ' + optionType);
     } else {
         argSection = argSection.replace('options', 'options: ' + optionType);
     }
+
     return argSection;
 };
 
 var createArgs = function(apiDef) {
     var argSection = sliceRegEx(apiDef.name, /\(/, /\)/);
-    if (!argSection || argSection.length < 4) return '()';
+
+    if (!argSection || argSection.length < 3) return '()';
 
     _.each(apiDef.args, function(arg) {
         argSection = addArgTypes(arg, argSection);
     });
+
     argSection = replaceIrregularArgNames(argSection);
     argSection = replaceOptions(argSection, apiDef);
     argSection = replaceIrregularArgTypes(argSection);
